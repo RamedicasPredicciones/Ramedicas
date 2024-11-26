@@ -144,6 +144,23 @@ st.markdown(
 def descargar_plantilla():
     return PLANTILLA_URL  # Asegúrate de que PLANTILLA_URL esté definida con el enlace correcto
 
+import pandas as pd
+from io import BytesIO
+import streamlit as st
+
+# Ensure you have your custom functions defined
+def descargar_plantilla():
+    # Your logic to generate the template URL or path
+    pass
+
+def load_inventory_file():
+    # Your logic to load the inventory file
+    pass
+
+def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
+    # Your logic to process the missing items
+    pass
+
 # Sección de botones alineados a la izquierda
 st.markdown(
     f"""
@@ -201,7 +218,7 @@ if uploaded_file:
 elif seleccion == "Búsqueda por Código":
     st.title("🔍 Búsqueda por Código")
 # Función para cargar el inventario desde Google Sheets
-def load_inventory_file():
+def load_inventory_file2():
     inventario_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
     inventario_api_df = pd.read_excel(inventario_url, sheet_name="Hoja1")
     inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()  # Asegurar nombres consistentes
@@ -251,7 +268,7 @@ def generar_excel(df):
     return output
 
 # Función para descargar la plantilla
-def descargar_plantilla():
+def descargar_plantilla2():
     plantilla_url = "https://docs.google.com/spreadsheets/d/1DWK-kyp5fy_AmjDrj9UUiiWIynT6ob3N/export?format=xlsx"
     return plantilla_url
 
@@ -273,7 +290,7 @@ st.markdown(
 
 st.markdown(
     f"""
-    <a href="{descargar_plantilla()}" download>
+    <a href="{descargar_plantilla2()}" download>
         <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
             Descargar plantilla
         </button>
@@ -291,7 +308,7 @@ if uploaded_file:
     else:
         faltantes_df = pd.read_csv(uploaded_file)
 
-    inventario_api_df = load_inventory_file()
+    inventario_api_df = load_inventory_file2()
 
     alternativas_disponibles_df = procesar_alternativas(faltantes_df, inventario_api_df)
 
