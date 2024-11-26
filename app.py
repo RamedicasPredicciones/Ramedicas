@@ -1,144 +1,94 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Gestión de Faltantes",
+    page_title="Gestión de Faltantes y Alternativas",
     page_icon="📦",
     layout="wide"
 )
 
-# Funciones auxiliares
-def descargar_excel(df, nombre_archivo):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    return output, nombre_archivo
-
-# Plantillas de ejemplo
-faltantes_template = pd.DataFrame({"cur": [], "embalaje": [], "codart": []})
-opciones_template = pd.DataFrame({
-    "cur": [],
-    "nombre": [],
-    "laboratorio": [],
-    "presentación": [],
-    "cantidad": []
-})
-inventario_template = pd.DataFrame({
-    "codart": [], "cur": [], "cantidad": [], "bodega": [], "embalaje": []
-})
-
-# Sidebar
-with st.sidebar:
-    st.image("https://i.imgur.com/ZiA6Kc3.png", use_column_width=True)
-    st.title("📦 Gestión de Faltantes")
-    opcion = st.radio(
-        "Selecciona una tarea:",
-        ["Inicio", "Cargar Faltantes", "Cargar Inventario", "Procesar Alternativas"]
-    )
-    st.write("---")
-    st.info("Selecciona una tarea en el menú para comenzar.")
-
-# Contenido principal
-if opcion == "Inicio":
-    st.title("📦 Gestión de Faltantes - Inicio")
-    st.write("""
-    Bienvenido a la aplicación de gestión de faltantes. 
-    Usa el menú lateral para navegar entre las opciones.
-    """)
-    st.markdown("### Funciones principales:")
-    st.write("- **Cargar Faltantes:** Subir un archivo con los productos faltantes.")
-    st.write("- **Cargar Inventario:** Subir un archivo con el inventario disponible.")
-    st.write("- **Procesar Alternativas:** Generar un archivo con sugerencias de productos alternativos.")
-
-elif opcion == "Cargar Faltantes":
-    st.title("📥 Cargar Faltantes")
-    st.write("Sube un archivo con los faltantes. Asegúrate de que tenga las columnas correctas.")
+# -----------------------------------
+# CÓDIGO 1: Alternativas filtradas por opciones
+# -----------------------------------
+def codigo_1():
+    st.header("Gestión de Alternativas por Opciones")
     
-    uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type=["xlsx"])
-    
-    if uploaded_file:
-        faltantes_df = pd.read_excel(uploaded_file)
-        st.success("Archivo cargado exitosamente.")
-        st.dataframe(faltantes_df)
-    else:
-        st.warning("No se ha subido ningún archivo.")
+    # Subir archivo de faltantes
+    faltantes_file = st.file_uploader("Sube tu archivo de faltantes (faltantes.xlsx)", type=['xlsx'])
+    if faltantes_file:
+        faltantes = pd.read_excel(faltantes_file)
+        st.write("Vista previa de faltantes cargados:", faltantes.head())
 
-    # Botón para descargar plantilla
-    output, nombre_archivo = descargar_excel(faltantes_template, "plantilla_faltantes.xlsx")
-    st.download_button(
-        label="Descargar plantilla de faltantes",
-        data=output,
-        file_name=nombre_archivo,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        # Subir archivo de inventario
+        inventario_file = st.file_uploader("Sube tu archivo de inventario (inventario.xlsx)", type=['xlsx'])
+        if inventario_file:
+            inventario = pd.read_excel(inventario_file)
+            st.write("Vista previa del inventario cargado:", inventario.head())
 
-elif opcion == "Cargar Inventario":
-    st.title("📥 Cargar Inventario")
-    st.write("Sube un archivo con el inventario disponible.")
-    
-    uploaded_file = st.file_uploader("Sube tu archivo de inventario", type=["xlsx"])
-    
-    if uploaded_file:
-        inventario_df = pd.read_excel(uploaded_file)
-        st.success("Archivo cargado exitosamente.")
-        st.dataframe(inventario_df)
-    else:
-        st.warning("No se ha subido ningún archivo.")
+            # Filtrar por opciones
+            opciones = st.multiselect(
+                "Selecciona las opciones de alternativas (columna 'opcion')",
+                options=inventario['opcion'].unique()
+            )
+            if opciones:
+                alternativas = inventario[inventario['opcion'].isin(opciones)]
+                st.write("Alternativas seleccionadas:", alternativas.head())
 
-    # Botón para descargar plantilla
-    output, nombre_archivo = descargar_excel(inventario_template, "plantilla_inventario.xlsx")
-    st.download_button(
-        label="Descargar plantilla de inventario",
-        data=output,
-        file_name=nombre_archivo,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+                # Descargar archivo filtrado
+                st.download_button(
+                    label="Descargar alternativas filtradas",
+                    data=alternativas.to_excel(index=False),
+                    file_name="alternativas_filtradas.xlsx"
+                )
 
-elif opcion == "Procesar Alternativas":
-    st.title("⚙️ Procesar Alternativas")
-    st.write("Sube los archivos necesarios para generar las alternativas.")
+# -----------------------------------
+# CÓDIGO 2: Gestión avanzada de faltantes
+# -----------------------------------
+def codigo_2():
+    st.header("Gestión Avanzada de Faltantes por Bodega y Embalaje")
 
-    # Subir faltantes
-    faltantes_file = st.file_uploader("Sube tu archivo de faltantes", type=["xlsx"])
-    
-    # Subir inventario
-    inventario_file = st.file_uploader("Sube tu archivo de inventario", type=["xlsx"])
-    
-    if faltantes_file and inventario_file:
-        faltantes_df = pd.read_excel(faltantes_file)
-        inventario_df = pd.read_excel(inventario_file)
+    # Subir archivo de faltantes
+    faltantes_file = st.file_uploader("Sube tu archivo de faltantes (faltantes_2.xlsx)", type=['xlsx'], key="faltantes_2")
+    if faltantes_file:
+        faltantes = pd.read_excel(faltantes_file)
+        st.write("Vista previa de faltantes cargados:", faltantes.head())
 
-        # Filtrar inventario disponible
-        inventario_df = inventario_df[inventario_df["cantidad"] > 0]
+        # Subir archivo de inventario
+        inventario_file = st.file_uploader("Sube tu archivo de inventario (inventario_2.xlsx)", type=['xlsx'], key="inventario_2")
+        if inventario_file:
+            inventario = pd.read_excel(inventario_file)
+            st.write("Vista previa del inventario cargado:", inventario.head())
 
-        # Generar alternativas
-        alternativas = faltantes_df.merge(inventario_df, on="cur", how="left")
-        alternativas = alternativas[[
-            "cur", "codart_x", "embalaje_x", "codart_y", "cantidad", "bodega", "embalaje_y"
-        ]].rename(columns={
-            "codart_x": "codart_faltante",
-            "embalaje_x": "embalaje",
-            "codart_y": "codart_alternativa",
-            "embalaje_y": "embalaje_alternativa"
-        })
+            # Filtrar por bodega
+            bodegas = st.multiselect(
+                "Selecciona la bodega (columna 'bodega')",
+                options=inventario['bodega'].unique()
+            )
+            if bodegas:
+                inventario_filtrado = inventario[inventario['bodega'].isin(bodegas)]
 
-        st.success("Alternativas procesadas exitosamente.")
-        st.dataframe(alternativas)
+                # Lógica para calcular faltantes ajustados
+                faltantes['cantidad_necesaria'] = faltantes['faltante'] * faltantes['embalaje']
+                inventario_filtrado['suplido'] = inventario_filtrado['cantidad'] - faltantes['cantidad_necesaria']
+                faltantes['faltante_restante'] = faltantes['cantidad_necesaria'] - inventario_filtrado['cantidad']
 
-        # Botón para descargar archivo procesado
-        output, nombre_archivo = descargar_excel(alternativas, "alternativas.xlsx")
-        st.download_button(
-            label="Descargar alternativas procesadas",
-            data=output,
-            file_name=nombre_archivo,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    else:
-        st.warning("Sube los archivos de faltantes e inventario para continuar.")
+                st.write("Resultados después del cálculo:", faltantes.head())
 
-# Footer
-st.markdown("---")
-st.markdown("Creado con ❤️ por Laura")
+                # Descargar archivo procesado
+                st.download_button(
+                    label="Descargar resultados procesados",
+                    data=faltantes.to_excel(index=False),
+                    file_name="resultados_faltantes.xlsx"
+                )
+
+# -----------------------------------
+# Selección de sección
+# -----------------------------------
+st.sidebar.title("Navegación")
+opcion = st.sidebar.radio("Selecciona el módulo", ["Alternativas por Opciones", "Gestión Avanzada de Faltantes"])
+
+if opcion == "Alternativas por Opciones":
+    codigo_1()
+elif opcion == "Gestión Avanzada de Faltantes":
+    codigo_2()
