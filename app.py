@@ -1,130 +1,144 @@
 import streamlit as st
 import pandas as pd
-import math
 from io import BytesIO
 
-# Cargar y procesar la información del primer código (Alternativas por Código de Artículo)
-def load_inventory_file():
-    inventario_url = "https://docs.google.com/spreadsheets/d/19myWtMrvsor2P_XHiifPgn8YKdTWE39O/export?format=xlsx"
-    inventario_api_df = pd.read_excel(inventario_url, sheet_name="Hoja1")
-    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()  # Asegurar nombres consistentes
-    return inventario_api_df
+# Configuración de la página
+st.set_page_config(
+    page_title="Gestión de Faltantes",
+    page_icon="📦",
+    layout="wide"
+)
 
-def procesar_alternativas(faltantes_df, inventario_api_df):
-    faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
-    if not {'cur', 'codart', 'embalaje'}.issubset(faltantes_df.columns):
-        st.error("El archivo de faltantes debe contener las columnas: 'cur', 'codart' y 'embalaje'")
-        return pd.DataFrame()
+# Funciones auxiliares
+def descargar_excel(df, nombre_archivo):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+    return output, nombre_archivo
 
-    cur_faltantes = faltantes_df['cur'].unique()
-    alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
+# Plantillas de ejemplo
+faltantes_template = pd.DataFrame({"cur": [], "embalaje": [], "codart": []})
+opciones_template = pd.DataFrame({
+    "cur": [],
+    "nombre": [],
+    "laboratorio": [],
+    "presentación": [],
+    "cantidad": []
+})
+inventario_template = pd.DataFrame({
+    "codart": [], "cur": [], "cantidad": [], "bodega": [], "embalaje": []
+})
 
-    alternativas_inventario_df['opcion'] = alternativas_inventario_df['opcion'].fillna(0).astype(int)
-    alternativas_inventario_df = alternativas_inventario_df.rename(columns={'codart': 'codart_alternativa'})
-    alternativas_inventario_df = alternativas_inventario_df[['cur', 'codart_alternativa', 'opcion', 'nomart', 'carta', 'descontinuado']]
-
-    alternativas_disponibles_df = pd.merge(faltantes_df, alternativas_inventario_df, on='cur', how='inner')
-
-    return alternativas_disponibles_df
-
-# Cargar y procesar la información del segundo código (Generador de Alternativas para Faltantes)
-PLANTILLA_URL = "https://docs.google.com/spreadsheets/d/1CPMBfCiuXq2_l8KY68HgexD-kyNVJ2Ml/export?format=xlsx"
-def load_inventory_file_bodega():
-    inventario_url = "https://docs.google.com/spreadsheets/d/1WV4la88gTl6OUgqQ5UM0IztNBn_k4VrC/export?format=xlsx&sheet=Hoja3"
-    inventario_api_df = pd.read_excel(inventario_url, sheet_name="Hoja3")
-    return inventario_api_df
-
-def procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada):
-    faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
-    inventario_api_df.columns = inventario_api_df.columns.str.lower().str.strip()
-
-    columnas_necesarias = {'cur', 'codart', 'faltante', 'embalaje'}
-    if not columnas_necesarias.issubset(faltantes_df.columns):
-        st.error(f"El archivo de faltantes debe contener las columnas: {', '.join(columnas_necesarias)}")
-        return pd.DataFrame()
-
-    cur_faltantes = faltantes_df['cur'].unique()
-    alternativas_inventario_df = inventario_api_df[inventario_api_df['cur'].isin(cur_faltantes)]
-
-    if bodega_seleccionada:
-        alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['bodega'].isin(bodega_seleccionada)]
-
-    alternativas_disponibles_df = alternativas_inventario_df[alternativas_inventario_df['unidadespresentacionlote'] > 0]
-
-    alternativas_disponibles_df.rename(columns={
-        'codart': 'codart_alternativa',
-        'opcion': 'opcion_alternativa',
-        'embalaje': 'embalaje_alternativa',
-        'unidadespresentacionlote': 'Existencias codart alternativa'
-    }, inplace=True)
-
-    alternativas_disponibles_df = pd.merge(faltantes_df[['cur', 'codart', 'faltante', 'embalaje']],
-                                            alternativas_disponibles_df,
-                                            on='cur', how='inner')
-
-    alternativas_disponibles_df = alternativas_disponibles_df[alternativas_disponibles_df['opcion_alternativa'] > 0]
-
-    alternativas_disponibles_df['cantidad_necesaria'] = alternativas_disponibles_df.apply(
-        lambda row: math.ceil(row['faltante'] * row['embalaje'] / row['embalaje_alternativa'])
-        if pd.notnull(row['embalaje']) and pd.notnull(row['embalaje_alternativa']) and row['embalaje_alternativa'] > 0
-        else None, axis=1
+# Sidebar
+with st.sidebar:
+    st.image("https://i.imgur.com/ZiA6Kc3.png", use_column_width=True)
+    st.title("📦 Gestión de Faltantes")
+    opcion = st.radio(
+        "Selecciona una tarea:",
+        ["Inicio", "Cargar Faltantes", "Cargar Inventario", "Procesar Alternativas"]
     )
+    st.write("---")
+    st.info("Selecciona una tarea en el menú para comenzar.")
 
-    alternativas_disponibles_df.sort_values(by=['codart', 'Existencias codart alternativa'], inplace=True)
-    return alternativas_disponibles_df
+# Contenido principal
+if opcion == "Inicio":
+    st.title("📦 Gestión de Faltantes - Inicio")
+    st.write("""
+    Bienvenido a la aplicación de gestión de faltantes. 
+    Usa el menú lateral para navegar entre las opciones.
+    """)
+    st.markdown("### Funciones principales:")
+    st.write("- **Cargar Faltantes:** Subir un archivo con los productos faltantes.")
+    st.write("- **Cargar Inventario:** Subir un archivo con el inventario disponible.")
+    st.write("- **Procesar Alternativas:** Generar un archivo con sugerencias de productos alternativos.")
 
-# Interfaz con pestañas
-st.markdown("""
-    <h1 style="text-align: center; color: #FF5800;">RAMEDICAS S.A.S.</h1>
-""", unsafe_allow_html=True)
-
-# Selección de pestaña
-tab = st.radio("Selecciona una opción:", ["Alternativas por Código de Artículo", "Generador de Alternativas para Faltantes"])
-
-if tab == "Alternativas por Código de Artículo":
-    # Función del primer código
-    st.subheader("Buscar Alternativas por Código de Artículo")
+elif opcion == "Cargar Faltantes":
+    st.title("📥 Cargar Faltantes")
+    st.write("Sube un archivo con los faltantes. Asegúrate de que tenga las columnas correctas.")
     
-    uploaded_file = st.file_uploader("Sube un archivo con los productos faltantes (contiene 'codart', 'cur' y 'embalaje')", type=["xlsx", "csv"])
-
-    if uploaded_file:
-        if uploaded_file.name.endswith('xlsx'):
-            faltantes_df = pd.read_excel(uploaded_file)
-        else:
-            faltantes_df = pd.read_csv(uploaded_file)
-
-        inventario_api_df = load_inventory_file()
-        alternativas_disponibles_df = procesar_alternativas(faltantes_df, inventario_api_df)
-
-        if not alternativas_disponibles_df.empty:
-            st.write("Alternativas disponibles:")
-            st.dataframe(alternativas_disponibles_df[['codart', 'cur', 'codart_alternativa', 'opcion', 'nomart', 'carta', 'descontinuado']])
-        else:
-            st.write("No se encontraron alternativas.")
-
-if tab == "Generador de Alternativas para Faltantes":
-    # Función del segundo código
-    st.subheader("Generar Alternativas para Faltantes")
-
-    uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type="xlsx")
+    uploaded_file = st.file_uploader("Sube tu archivo de faltantes", type=["xlsx"])
     
     if uploaded_file:
         faltantes_df = pd.read_excel(uploaded_file)
-        inventario_api_df = load_inventory_file_bodega()
+        st.success("Archivo cargado exitosamente.")
+        st.dataframe(faltantes_df)
+    else:
+        st.warning("No se ha subido ningún archivo.")
 
-        bodegas_disponibles = inventario_api_df['bodega'].unique().tolist()
-        bodega_seleccionada = st.multiselect("Seleccione la bodega", options=bodegas_disponibles, default=[])
+    # Botón para descargar plantilla
+    output, nombre_archivo = descargar_excel(faltantes_template, "plantilla_faltantes.xlsx")
+    st.download_button(
+        label="Descargar plantilla de faltantes",
+        data=output,
+        file_name=nombre_archivo,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
-        columnas_adicionales = st.multiselect(
-            "Selecciona columnas adicionales para incluir en el archivo final:",
-            options=["presentacionart", "numlote", "fechavencelote"],
-            default=[]
+elif opcion == "Cargar Inventario":
+    st.title("📥 Cargar Inventario")
+    st.write("Sube un archivo con el inventario disponible.")
+    
+    uploaded_file = st.file_uploader("Sube tu archivo de inventario", type=["xlsx"])
+    
+    if uploaded_file:
+        inventario_df = pd.read_excel(uploaded_file)
+        st.success("Archivo cargado exitosamente.")
+        st.dataframe(inventario_df)
+    else:
+        st.warning("No se ha subido ningún archivo.")
+
+    # Botón para descargar plantilla
+    output, nombre_archivo = descargar_excel(inventario_template, "plantilla_inventario.xlsx")
+    st.download_button(
+        label="Descargar plantilla de inventario",
+        data=output,
+        file_name=nombre_archivo,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+elif opcion == "Procesar Alternativas":
+    st.title("⚙️ Procesar Alternativas")
+    st.write("Sube los archivos necesarios para generar las alternativas.")
+
+    # Subir faltantes
+    faltantes_file = st.file_uploader("Sube tu archivo de faltantes", type=["xlsx"])
+    
+    # Subir inventario
+    inventario_file = st.file_uploader("Sube tu archivo de inventario", type=["xlsx"])
+    
+    if faltantes_file and inventario_file:
+        faltantes_df = pd.read_excel(faltantes_file)
+        inventario_df = pd.read_excel(inventario_file)
+
+        # Filtrar inventario disponible
+        inventario_df = inventario_df[inventario_df["cantidad"] > 0]
+
+        # Generar alternativas
+        alternativas = faltantes_df.merge(inventario_df, on="cur", how="left")
+        alternativas = alternativas[[
+            "cur", "codart_x", "embalaje_x", "codart_y", "cantidad", "bodega", "embalaje_y"
+        ]].rename(columns={
+            "codart_x": "codart_faltante",
+            "embalaje_x": "embalaje",
+            "codart_y": "codart_alternativa",
+            "embalaje_y": "embalaje_alternativa"
+        })
+
+        st.success("Alternativas procesadas exitosamente.")
+        st.dataframe(alternativas)
+
+        # Botón para descargar archivo procesado
+        output, nombre_archivo = descargar_excel(alternativas, "alternativas.xlsx")
+        st.download_button(
+            label="Descargar alternativas procesadas",
+            data=output,
+            file_name=nombre_archivo,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+    else:
+        st.warning("Sube los archivos de faltantes e inventario para continuar.")
 
-        resultado_final_df = procesar_faltantes(faltantes_df, inventario_api_df, columnas_adicionales, bodega_seleccionada)
-        
-        if not resultado_final_df.empty:
-            st.write("Resultado Final:")
-            st.dataframe(resultado_final_df[['cur', 'codart', 'faltante', 'embalaje', 'codart_alternativa', 'opcion_alternativa', 'embalaje_alternativa', 'cantidad_necesaria', 'Existencias codart alternativa', 'bodega', 'suplido']])
-        else:
-            st.write("No se generaron alternativas.")
+# Footer
+st.markdown("---")
+st.markdown("Creado con ❤️ por Laura")
