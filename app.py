@@ -52,7 +52,7 @@ if seleccion == "Alternativas para Faltantes":
         f"""
         <a href="{descargar_plantilla(PLANTILLA_URL)}" download>
             <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-                Descargar plantilla de faltantes
+                📥 Descargar plantilla de faltantes
             </button>
         </a>
         """,
@@ -60,7 +60,7 @@ if seleccion == "Alternativas para Faltantes":
     )
 
     # Subir archivo
-    uploaded_file = st.file_uploader("Sube tu archivo de faltantes (xlsx)", type="xlsx")
+    uploaded_file = st.file_uploader("📤 Subir tu archivo de faltantes (xlsx)", type="xlsx")
 
     if uploaded_file:
         faltantes_df = pd.read_excel(uploaded_file)
@@ -71,7 +71,7 @@ if seleccion == "Alternativas para Faltantes":
         # Procesar faltantes
         columnas_necesarias = {'cur', 'codart', 'faltante', 'embalaje'}
         if not columnas_necesarias.issubset(faltantes_df.columns):
-            st.error(f"El archivo de faltantes debe contener las columnas: {', '.join(columnas_necesarias)}")
+            st.error(f"❌ El archivo de faltantes debe contener las columnas: {', '.join(columnas_necesarias)}")
             st.stop()
 
         cur_faltantes = faltantes_df['cur'].unique()
@@ -129,7 +129,7 @@ if seleccion == "Alternativas para Faltantes":
             axis=1
         )
 
-        st.success("Procesamiento completado.")
+        st.success("✔️ Procesamiento completado.")
         st.dataframe(resultado_final_df)
 
         # Exportar archivo
@@ -141,7 +141,7 @@ if seleccion == "Alternativas para Faltantes":
             return output
 
         st.download_button(
-            label="Descargar archivo de alternativas",
+            label="📥 Descargar archivo de alternativas",
             data=to_excel(resultado_final_df),
             file_name="alternativas_faltantes.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -165,7 +165,7 @@ elif seleccion == "Búsqueda por Código":
         f"""
         <a href="{descargar_plantilla(PLANTILLA_URL)}" download>
             <button style="background-color: #FF5800; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer;">
-                Descargar plantilla
+                📥 Descargar plantilla
             </button>
         </a>
         """,
@@ -175,9 +175,9 @@ elif seleccion == "Búsqueda por Código":
     # Subir archivo o ingresar código manual
     col1, col2 = st.columns(2)
     with col1:
-        uploaded_file = st.file_uploader("Sube un archivo con los productos faltantes", type=["xlsx", "csv"])
+        uploaded_file = st.file_uploader("📤 Subir tu archivo con los productos faltantes", type=["xlsx", "csv"])
     with col2:
-        codigo_manual = st.text_input("O ingresa el código de producto directamente:")
+        codigo_manual = st.text_input("🔍 O ingresa el código de producto directamente:")
 
     if uploaded_file or codigo_manual:
         inventario_df = load_inventory_file(INVENTARIO_URL)
@@ -189,14 +189,32 @@ elif seleccion == "Búsqueda por Código":
             faltantes_df.columns = faltantes_df.columns.str.lower().str.strip()
 
             if not {'cur', 'codart', 'embalaje'}.issubset(faltantes_df.columns):
-                st.error("El archivo de faltantes debe contener las columnas: 'cur', 'codart' y 'embalaje'")
+                st.error("❌ El archivo de faltantes debe contener las columnas: 'cur', 'codart' y 'embalaje'")
                 st.stop()
 
             cur_faltantes = faltantes_df['cur'].unique()
             alternativas_inventario_df = inventario_df[inventario_df['cur'].isin(cur_faltantes)]
+            alternativas_inventario_df = alternativas_inventario_df[alternativas_inventario_df['unidadespresentacionlote'] > 0]
 
+            alternativas_inventario_df.rename(columns={
+                'codart': 'codart_alternativa',
+                'opcion': 'opcion_alternativa',
+                'embalaje': 'embalaje_alternativa',
+                'unidadespresentacionlote': 'Existencias codart alternativa'
+            }, inplace=True)
+
+            alternativas_disponibles_df = pd.merge(
+                faltantes_df[['cur', 'codart', 'faltante', 'embalaje']],
+                alternativas_inventario_df,
+                on='cur',
+                how='inner'
+            )
+
+            alternativas_disponibles_df = alternativas_disponibles_df[alternativas_disponibles_df['opcion_alternativa'] > 0]
+
+            # Resultado
             st.write("Alternativas encontradas:")
-            st.dataframe(alternativas_inventario_df)
+            st.dataframe(alternativas_disponibles_df)
 
         elif codigo_manual:
             st.write(f"Buscando alternativas para el código: {codigo_manual}")
@@ -204,7 +222,7 @@ elif seleccion == "Búsqueda por Código":
             alternativa_codigo = inventario_df[inventario_df['codart'] == codigo_manual]
 
             if alternativa_codigo.empty:
-                st.error("No se encontró el código en el inventario.")
+                st.error("❌ No se encontró el código en el inventario.")
             else:
                 st.write("Alternativa encontrada:")
                 st.dataframe(alternativa_codigo)
